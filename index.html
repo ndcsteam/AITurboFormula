@@ -1,0 +1,3175 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>賽車遊戲排名介面</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏎️</text></svg>">
+    <style>
+        :root {
+            --primary-color: #ff4500;
+            --secondary-color: #ffc107;
+            --bg-color: #1a1a2e;
+            --text-color: #ffffff;
+            --highlight-color: #ff6b6b;
+            --track-color: #4a4a5a;
+            --confirm-color: #4CAF50;
+            --reject-color: #f44336;
+        }
+        
+        .dark {
+            --bg-color: #1a1a2e;
+            --text-color: #ffffff;
+            --track-color: #4a4a5a;
+        }
+        
+        /* 動態背景相關樣式 */
+        @keyframes race-track {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 100%; }
+        }
+        
+        @keyframes particle-animation {
+            0% {
+                transform: translateY(0) translateX(0) scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: translateY(-20px) translateX(10px) scale(1.2);
+                opacity: 0.7;
+            }
+            100% {
+                transform: translateY(0) translateX(0) scale(1);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes road-light {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+        
+        @keyframes shine {
+            0% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0.3; transform: scale(0.8); }
+        }
+        
+        .dynamic-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-color: var(--bg-color);
+            background-image: url('https://i.imgur.com/oms2uVb.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            overflow: hidden;
+        }
+        
+        .track-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 200%;
+            /* 減少可見度以讓背景圖片更清晰 */
+            background-image: linear-gradient(0deg, 
+                transparent 0%, 
+                transparent 45%, 
+                rgba(255, 255, 255, 0.02) 45%, 
+                rgba(255, 255, 255, 0.02) 55%, 
+                transparent 55%, 
+                transparent);
+            background-size: 100% 120px;
+            animation: race-track 15s linear infinite;
+            opacity: 0.5;
+        }
+        
+        .overlay-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* 減少可見度以讓背景圖片更清晰 */
+            background-image: 
+                linear-gradient(90deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px),
+                linear-gradient(rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.3;
+        }
+        
+        .particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .road-light {
+            position: absolute;
+            width: 50px;
+            height: 10px;
+            background: rgba(255, 215, 0, 0.2);
+            border-radius: 50%;
+            filter: blur(5px);
+        }
+        
+        .star {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background-color: #fff;
+            border-radius: 50%;
+        }
+        
+        body {
+            font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
+            color: var(--text-color);
+            overflow-x: hidden;
+            position: relative;
+            background-color: var(--bg-color);
+        }
+        
+        /* 側邊欄樣式 */
+        .sidebar {
+            position: fixed;
+            left: -400px;
+            top: 0;
+            width: 400px;
+            height: 100%;
+            background: rgba(20, 20, 35, 0.95);
+            z-index: 1000;
+            transition: left 0.3s ease;
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+            padding-bottom: 50px;
+        }
+        
+        .sidebar.open {
+            left: 0;
+        }
+        
+        .sidebar-toggle {
+            position: fixed;
+            left: 20px;
+            top: 20px;
+            background: #000000;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1001;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            transition: left 0.3s ease, transform 0.3s ease;
+        }
+        
+        .sidebar-toggle.open {
+            left: 410px;
+            transform: rotate(180deg);
+        }
+        
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .sidebar-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            margin: 0;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: rgba(255, 255, 255, 0.7);
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab.active {
+            color: var(--secondary-color);
+            border-bottom: 3px solid var(--secondary-color);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 1.5rem;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* CSV上傳區域 */
+        .csv-upload {
+            margin-bottom: 1.5rem;
+        }
+        
+        .upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 2rem 1rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            border-color: var(--secondary-color);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .upload-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--secondary-color);
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        /* 參賽者列表 */
+        .participant-list {
+            margin-top: 1.5rem;
+        }
+        
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .participants-container {
+            max-height: 600px; /* 設置為固定高度600px */
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        /* 為後備名單設置較小的高度上限 */
+        #backupList {
+            max-height: 120px;
+        }
+        
+        .participant-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+        }
+        
+        .participant-name {
+            flex-grow: 1;
+        }
+        
+        .delete-btn, .restore-btn {
+            border: none;
+            border-radius: 4px;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1rem;
+            opacity: 0.7;
+            transition: all 0.2s;
+        }
+        
+        .delete-btn {
+            background: var(--reject-color);
+            color: white;
+        }
+        
+        .restore-btn {
+            background: var(--confirm-color);
+            color: white;
+        }
+        
+        .delete-btn:hover, .restore-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .add-participant {
+            margin-top: 1rem;
+        }
+        
+        .input-group {
+            display: flex;
+            margin-bottom: 1rem;
+        }
+        
+        .name-input {
+            flex-grow: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px 0 0 4px;
+        }
+        
+        .add-btn {
+            background: var(--confirm-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        /* 分組功能 */
+        .group-settings {
+            margin-bottom: 1.5rem;
+        }
+        
+        .setting-group {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .setting-item {
+            flex: 1;
+        }
+        
+        .setting-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .setting-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 4px;
+        }
+        
+        .random-btn {
+            background: var(--secondary-color);
+            color: #333;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+        
+        .random-btn:hover {
+            background: #ffd54f;
+            transform: translateY(-2px);
+        }
+        
+        .random-btn:active {
+            transform: translateY(0);
+        }
+        
+        .group-results {
+            margin-top: 1.5rem;
+        }
+        
+        .group-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .group-card {
+            background: rgba(93, 92, 222, 0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px solid rgba(93, 92, 222, 0.5);
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .group-card:hover {
+            background: rgba(93, 92, 222, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .group-card:hover::after {
+            content: '點擊編輯';
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: var(--secondary-color);
+            color: #333;
+            font-size: 0.7rem;
+            padding: 2px 5px;
+            border-radius: 0 8px 0 8px;
+            opacity: 0.9;
+        }
+        
+        .group-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: var(--secondary-color);
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 0.5rem;
+        }
+        
+        .group-members {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        /* 新增組別按鈕樣式 */
+        .add-group-card {
+            background: rgba(93, 92, 222, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            border: 2px dashed rgba(93, 92, 222, 0.5);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-height: 100px;
+        }
+        
+        .add-group-card:hover {
+            background: rgba(93, 92, 222, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .add-group-icon {
+            font-size: 2rem;
+            color: var(--secondary-color);
+            margin-bottom: 0.5rem;
+        }
+        
+        .add-group-text {
+            color: var(--secondary-color);
+            font-weight: bold;
+        }
+        
+        .group-member {
+            padding: 0.25rem 0;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+        }
+        
+        .member-number {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            margin-right: 0.5rem;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+        
+        /* 組別編輯對話框樣式 */
+        .group-edit-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        
+        .group-edit-content {
+            background: rgba(30, 30, 50, 0.95);
+            border: 2px solid var(--secondary-color);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        .group-edit-header {
+            background: linear-gradient(90deg, 
+                rgba(93, 92, 222, 0.6) 0%, 
+                rgba(255, 193, 7, 0.6) 100%);
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .group-edit-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            margin: 0;
+        }
+        
+        .group-edit-body {
+            padding: 1rem;
+        }
+        
+        .group-edit-members {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .group-edit-member {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .group-edit-member:last-child {
+            border-bottom: none;
+        }
+        
+        .member-remove-btn {
+            background: var(--reject-color);
+            color: white;
+            border: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            opacity: 0.7;
+            transition: all 0.2s;
+        }
+        
+        .member-remove-btn:hover {
+            opacity: 1;
+        }
+        
+        .group-edit-section {
+            margin-bottom: 1rem;
+        }
+        
+        .group-edit-label {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        
+        .group-edit-add {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .group-edit-input {
+            flex-grow: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 4px;
+        }
+        
+        .group-edit-add-btn {
+            background: var(--confirm-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .group-edit-footer {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .group-edit-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .group-edit-save {
+            background: var(--confirm-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .group-edit-cancel {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .group-edit-delete {
+            background: var(--reject-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            opacity: 0.8;
+            transition: all 0.2s;
+        }
+        
+        .group-edit-delete:hover {
+            opacity: 1;
+            transform: translateY(-2px);
+        }
+        
+        .container {
+            width: 90%;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        
+        .logo-container {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        
+        .event-logo {
+            max-width: 80%;
+            height: auto;
+            max-height: 145px; /* 180px 的 80% */
+            margin: 0 auto;
+        }
+        
+        .title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.7), 
+                         0 0 20px rgba(93, 92, 222, 0.6), 
+                         0 0 30px rgba(93, 92, 222, 0.4);
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        
+        .game-board {
+            background: rgba(42, 42, 64, 0.5);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            border: 4px solid var(--secondary-color);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            max-height: calc(100vh - 250px);
+            overflow-y: auto;
+        }
+        
+        .game-board::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 10px;
+            background: linear-gradient(90deg, 
+                var(--secondary-color) 0%, 
+                var(--primary-color) 25%, 
+                var(--secondary-color) 50%, 
+                var(--primary-color) 75%, 
+                var(--secondary-color) 100%);
+            background-size: 200% 100%;
+            animation: rainbow 2s linear infinite;
+        }
+        
+        @keyframes rainbow {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+        
+        .rankings {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .rankings-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            width: 100%;
+        }
+        
+        .rankings-column {
+            flex: 1;
+            min-width: 280px;
+        }
+        
+        .ranking-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding: 0.75rem;
+            border-radius: 15px;
+            transition: all 0.5s ease;
+            background: rgba(30, 30, 50, 0.5);
+            border-left: 10px solid transparent;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+        }
+        
+        .ranking-item::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transform: translateX(-100%);
+            transition: 0.5s;
+        }
+        
+        .ranking-item:hover::after {
+            transform: translateX(100%);
+        }
+        
+        .rank {
+            font-size: 3.5rem;
+            font-weight: 900;
+            width: 60px;
+            margin-right: 1.5rem;
+            color: white;
+            flex-shrink: 0;
+            text-align: center;
+            text-shadow: 0 0 12px rgba(255, 255, 255, 0.7), 0 0 20px rgba(255, 255, 255, 0.3);
+            font-family: 'Arial', sans-serif;
+            line-height: 0.9;
+            padding-top: 0.1em;
+        }
+        
+        .car-number {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            margin-right: 1.5rem;
+            flex-shrink: 0;
+        }
+        
+        .car-avatar {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background-color: var(--secondary-color);
+            border: 3px solid white;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--bg-color);
+            /* 汽車剪影形狀 */
+            clip-path: path('M54,30.3c0-1.2-0.6-2.3-1.7-2.8l-20.1-9.6c-4.3-2.1-9.2-2.8-14-2c-2.4,0.4-4.9,0.6-7.3,0.6H7.8c-3,0-5.6,2-6.4,4.9L0.1,27.2c-0.1,0.6-0.2,1.1-0.2,1.7v15.5C0,46.8,1.9,49,4.3,49.5c3.5,0.8,6.2,3.5,7,7c0.5,2.4,2.6,4.1,5,4.1h6.2c2.5,0,4.6-1.8,5-4.3c0.5-3.2,3.2-5.6,6.4-5.6h26.4c3.2,0,5.9,2.3,6.4,5.6c0.4,2.5,2.5,4.3,5,4.3h6.1c2.5,0,4.5-1.7,5-4.1c0.8-3.5,3.5-6.2,7-7c2.4-0.5,4.3-2.7,4.3-5.1V42.1C68,35.5,61.9,30.3,54,30.3L54,30.3z M16,48c-3.3,0-6-2.7-6-6s2.7-6,6-6s6,2.7,6,6S19.3,48,16,48z M52,48c-3.3,0-6-2.7-6-6s2.7-6,6-6s6,2.7,6,6S55.3,48,52,48z');
+            position: relative;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 68 68' preserveAspectRatio='xMidYMid meet'%3E%3Cpath d='M54,30.3c0-1.2-0.6-2.3-1.7-2.8l-20.1-9.6c-4.3-2.1-9.2-2.8-14-2c-2.4,0.4-4.9,0.6-7.3,0.6H7.8c-3,0-5.6,2-6.4,4.9L0.1,27.2c-0.1,0.6-0.2,1.1-0.2,1.7v15.5C0,46.8,1.9,49,4.3,49.5c3.5,0.8,6.2,3.5,7,7c0.5,2.4,2.6,4.1,5,4.1h6.2c2.5,0,4.6-1.8,5-4.3c0.5-3.2,3.2-5.6,6.4-5.6h26.4c3.2,0,5.9,2.3,6.4,5.6c0.4,2.5,2.5,4.3,5,4.3h6.1c2.5,0,4.5-1.7,5-4.1c0.8-3.5,3.5-6.2,7-7c2.4-0.5,4.3-2.7,4.3-5.1V42.1C68,35.5,61.9,30.3,54,30.3L54,30.3z M16,48c-3.3,0-6-2.7-6-6s2.7-6,6-6s6,2.7,6,6S19.3,48,16,48z M52,48c-3.3,0-6-2.7-6-6s2.7-6,6-6s6,2.7,6,6S55.3,48,52,48z' fill='currentColor'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            border-radius: 4px;
+        }
+        
+        /* 添加白色背景圓形讓數字更清晰 */
+        .car-avatar::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            background-color: rgba(255, 255, 255, 0.85);
+            border-radius: 50%;
+            z-index: -1;
+        }
+        
+        .car-info {
+            flex-grow: 1;
+        }
+        
+        .car-name {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 0.3rem;
+        }
+        
+        .lap-time {
+            font-size: 1rem;
+            color: #ccc;
+        }
+        
+        .lap-count {
+            position: absolute;
+            top: 0.5rem;
+            right: 6.5rem;
+            font-size: 0.8rem;
+            color: #ffc107;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            font-weight: bold;
+        }
+        
+        .time {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-left: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            font-family: monospace;
+            flex-shrink: 0;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            box-shadow: 0 5px 15px rgba(255, 69, 0, 0.4);
+            margin-right: 1rem;
+            font-size: 1rem;
+        }
+        
+        .btn:hover {
+            background: var(--highlight-color);
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(255, 69, 0, 0.6);
+        }
+        
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 3px 10px rgba(255, 69, 0, 0.4);
+        }
+        
+        .btn-secondary {
+            background: var(--secondary-color);
+            color: #333;
+            box-shadow: 0 5px 15px rgba(255, 193, 7, 0.4);
+        }
+        
+        .btn-secondary:hover {
+            background: #ffcf40;
+            box-shadow: 0 7px 20px rgba(255, 193, 7, 0.6);
+        }
+        
+        .control-panel {
+            display: flex;
+            justify-content: center;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            background: #f44336;
+        }
+        
+        .status-indicator.connected {
+            background: #4CAF50;
+        }
+        
+        .finish-line {
+            height: 20px;
+            background-image: repeating-linear-gradient(
+                45deg,
+                #000 0,
+                #000 10px,
+                #fff 10px,
+                #fff 20px
+            );
+            margin: 0 0 2rem 0;
+            position: relative;
+        }
+        
+        .finish-line::before {
+            content: '🏁';
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2rem;
+        }
+        
+        .race-timer {
+            font-size: 2rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 1rem;
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.5rem;
+            border-radius: 10px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+        }
+        
+        .move-up {
+            animation: moveUp 0.5s ease forwards;
+        }
+        
+        @keyframes moveUp {
+            0% { transform: translateY(0); opacity: 1; }
+            50% { transform: translateY(-30px); opacity: 0.5; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        
+        .highlight {
+            animation: highlight 1s ease;
+        }
+        
+        @keyframes highlight {
+            0% { background: rgba(255, 107, 107, 0.5); }
+            100% { background: rgba(30, 30, 50, 0.7); }
+        }
+        
+        /* 排名動畫效果 */
+        @keyframes slideIn {
+            0% { transform: translateX(-50px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes rankChange {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes flipIn {
+            0% { transform: perspective(400px) rotateY(90deg); opacity: 0; }
+            100% { transform: perspective(400px) rotateY(0deg); opacity: 1; }
+        }
+        
+        .rank-new {
+            animation: rankChange 0.6s ease forwards;
+        }
+        
+        .item-new {
+            animation: slideIn 0.5s ease forwards;
+        }
+        
+        .time-change {
+            animation: flipIn 0.5s ease forwards;
+        }
+        
+        .winner {
+            border-left: 10px solid gold;
+            background: linear-gradient(90deg, rgba(255, 215, 0, 0.3), rgba(30, 30, 50, 0.7));
+        }
+        
+        /* 金牌效果 */
+        .winner .rank {
+            font-size: 4rem;
+            background: linear-gradient(to bottom, #f0d86b 0%, #bf953f 40%, #fcf6ba 55%, #b38728 85%, #fbf5b7 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0px 0px 6px rgba(255, 215, 0, 0.6);
+            position: relative;
+            filter: drop-shadow(0px 2px 2px rgba(0, 0, 0, 0.5));
+        }
+        
+        /* 銀牌效果 */
+        .second-place .rank {
+            font-size: 3.8rem;
+            background: linear-gradient(to bottom, #e3e4e5 0%, #b5b6b7 40%, #f7f7f8 55%, #8e9092 85%, #e3e4e5 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0px 0px 6px rgba(192, 192, 192, 0.6);
+            position: relative;
+            filter: drop-shadow(0px 2px 2px rgba(0, 0, 0, 0.5));
+        }
+        
+        /* 銅牌效果 */
+        .third-place .rank {
+            font-size: 3.6rem;
+            background: linear-gradient(to bottom, #dd9e40 0%, #a16125 40%, #f3c77b 55%, #7a481c 85%, #e8b25f 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0px 0px 6px rgba(205, 127, 50, 0.6);
+            position: relative;
+            filter: drop-shadow(0px 2px 2px rgba(0, 0, 0, 0.5));
+        }
+        
+        .second-place {
+            border-left: 10px solid silver;
+            background: linear-gradient(90deg, rgba(192, 192, 192, 0.3), rgba(30, 30, 50, 0.7));
+        }
+        
+        .third-place {
+            border-left: 10px solid #cd7f32;
+            background: linear-gradient(90deg, rgba(205, 127, 50, 0.3), rgba(30, 30, 50, 0.7));
+        }
+        
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: var(--primary-color);
+            animation: confetti 5s ease-in-out infinite;
+            z-index: 1;
+        }
+        
+        @keyframes confetti {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        }
+        
+        .debug-panel {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .debug-btn {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            margin-right: 0.5rem;
+            cursor: pointer;
+        }
+        
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2rem;
+            }
+            
+            .rankings-row {
+                flex-direction: column;
+            }
+            
+            .rankings-column {
+                width: 100%;
+            }
+            
+            .ranking-item {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 1rem;
+            }
+            
+            .rank {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                margin-right: 0;
+                width: 40px;
+                height: 40px;
+                font-size: 1.4rem;
+            }
+            
+            .car-number {
+                margin-bottom: 0.75rem;
+            }
+            
+            .time {
+                align-self: flex-end;
+                margin-top: 0.5rem;
+                margin-left: 0;
+            }
+            
+            .control-panel {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                margin-right: 0;
+                margin-bottom: 0.75rem;
+                text-align: center;
+            }
+            
+            .connection-status {
+                margin-left: 0;
+                margin-top: 0.5rem;
+            }
+        }
+        
+        /* Car colors */
+        .car-1 .car-avatar { background-color: #ff4500; }
+        .car-2 .car-avatar { background-color: #3498db; }
+        .car-3 .car-avatar { background-color: #2ecc71; }
+        .car-4 .car-avatar { background-color: #f1c40f; }
+        .car-5 .car-avatar { background-color: #9b59b6; }
+        .car-6 .car-avatar { background-color: #e74c3c; }
+        .car-7 .car-avatar { background-color: #1abc9c; }
+        .car-8 .car-avatar { background-color: #e67e22; }
+        .car-9 .car-avatar { background-color: #34495e; }
+        
+        /* 評判確認對話框樣式 */
+        .judge-confirmation {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        /* 讓排名項目可點擊 */
+        .ranking-item {
+            cursor: pointer;
+        }
+        
+        .ranking-item:hover {
+            border: 1px solid var(--secondary-color);
+            box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
+        }
+        
+        /* 修改成績對話框樣式 */
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+        
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .edit-controls {
+            margin-top: 1rem;
+        }
+        
+        .laps-control {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+        
+        .laps-control > span {
+            font-weight: bold;
+            color: #ddd;
+        }
+        
+        .laps-buttons {
+            display: flex;
+            gap: 0.8rem;
+        }
+        
+        .edit-btn {
+            flex: 1;
+            padding: 0.6rem 0.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        
+        .increase-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .decrease-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        .increase-btn:hover {
+            background-color: #3a9a3a;
+        }
+        
+        .decrease-btn:hover {
+            background-color: #d32f2f;
+        }
+        
+        .btn-icon {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .confirmation-content {
+            background: rgba(30, 30, 50, 0.9);
+            border: 2px solid var(--primary-color);
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+            width: 350px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            overflow: hidden;
+        }
+        
+        .confirmation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 1.2rem;
+            background: linear-gradient(90deg, 
+                rgba(93, 92, 222, 0.6) 0%, 
+                rgba(255, 69, 0, 0.6) 100%);
+        }
+        
+        .confirmation-title {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .countdown-timer {
+            font-size: 1.3rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: white;
+            background: rgba(0, 0, 0, 0.3);
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .confirmation-body {
+            padding: 1.2rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        #confirmationMessage {
+            margin: 0;
+            font-size: 1.1rem;
+            color: white;
+        }
+        
+        .confirmation-footer {
+            display: flex;
+            justify-content: space-between;
+            padding: 1rem;
+        }
+        
+        .confirm-btn, .reject-btn {
+            padding: 0.5rem 1.5rem;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 45%;
+        }
+        
+        .confirm-btn {
+            background-color: var(--confirm-color);
+            color: white;
+        }
+        
+        .reject-btn {
+            background-color: var(--reject-color);
+            color: white;
+        }
+        
+        .confirm-btn:hover {
+            background-color: #3a9a3a;
+            transform: translateY(-2px);
+        }
+        
+        .reject-btn:hover {
+            background-color: #d32f2f;
+            transform: translateY(-2px);
+        }
+        
+        .confirm-btn:active, .reject-btn:active {
+            transform: translateY(1px);
+        }
+        
+        @media (max-width: 480px) {
+            .judge-confirmation {
+                left: 10px;
+                right: 10px;
+                bottom: 10px;
+            }
+            
+            .confirmation-content {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 動態背景元素 -->
+    <div class="dynamic-bg">
+        <div class="track-lines"></div>
+        <div class="overlay-grid"></div>
+        <div class="particles" id="particles"></div>
+    </div>
+    
+    <!-- 側邊抽屜面板 -->
+    <button class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-chevron-right"></i>
+    </button>
+    
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2 class="sidebar-title">參賽者管理系統</h2>
+        </div>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="upload">上傳檔案</div>
+            <div class="tab" data-tab="participants">參賽者管理</div>
+            <div class="tab" data-tab="groups">分組設置</div>
+        </div>
+        
+        <!-- 上傳檔案標籤內容 -->
+        <div class="tab-content active" id="upload-tab">
+            <div class="csv-upload">
+                <h3>上傳參賽者CSV資料</h3>
+                <p class="text-sm text-gray-400 mb-4">CSV格式: 每行一個參賽者姓名，可以從Excel或試算表匯出</p>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-file-upload"></i>
+                    </div>
+                    <p>點擊選擇檔案或拖放至此處</p>
+                    <p class="text-sm text-gray-400">支援 .csv 檔案</p>
+                </div>
+                
+                <input type="file" id="fileInput" class="file-input" accept=".csv">
+                
+                <div class="file-preview mt-3 hidden" id="filePreview">
+                    <h4 class="text-secondary-color">已選擇檔案:</h4>
+                    <p id="fileName">filename.csv</p>
+                    <button class="confirm-btn w-full mt-2" id="loadCsvBtn">載入參賽者資料</button>
+                </div>
+            </div>
+            
+            <div class="csv-result hidden" id="csvResult">
+                <h3 class="text-green-500 mb-2">
+                    <i class="fas fa-check-circle"></i> 載入成功
+                </h3>
+                <p>成功載入 <span id="loadedCount">0</span> 名參賽者</p>
+                <p class="text-sm text-gray-400">您可以在「參賽者管理」分頁中檢視與修改</p>
+            </div>
+        </div>
+        
+        <!-- 參賽者管理標籤內容 -->
+        <div class="tab-content" id="participants-tab">
+            <div class="participant-list">
+                <div class="list-header">
+                    <h3>參賽者名單</h3>
+                    <div class="text-gray-400 text-sm">
+                        共 <span id="participantCount">0</span> 名
+                    </div>
+                </div>
+                
+                <div class="participants-container" id="participantsList">
+                    <!-- 參賽者會在這裡顯示 -->
+                </div>
+                
+                <!-- 後備名單 -->
+                <div class="backup-list mt-8">
+                    <div class="list-header">
+                        <h3>後備名單</h3>
+                        <div class="text-gray-400 text-sm">
+                            共 <span id="backupCount">0</span> 名
+                        </div>
+                    </div>
+                    
+                    <div class="participants-container" id="backupList">
+                        <!-- 後備名單會在這裡顯示 -->
+                    </div>
+                </div>
+                
+                <!-- 將新增參賽者移到後備名單下面 -->
+                <div class="add-participant mt-8">
+                    <h4 class="mb-2">新增參賽者</h4>
+                    <div class="input-group">
+                        <input type="text" class="name-input" id="newParticipantName" placeholder="輸入參賽者姓名">
+                        <button class="add-btn" id="addParticipantBtn">
+                            <i class="fas fa-plus"></i>新增
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 分組設置標籤內容 -->
+        <div class="tab-content" id="groups-tab">
+            <div class="group-settings">
+                <h3 class="mb-3">分組設置</h3>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <label class="setting-label">分組數量</label>
+                        <input type="number" id="groupCount" class="setting-input" min="1" max="9" value="3">
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">每組人數</label>
+                        <input type="number" id="membersPerGroup" class="setting-input" min="1" value="3">
+                    </div>
+                </div>
+                
+                <button class="random-btn" id="randomGroupBtn">
+                    <i class="fas fa-random"></i>
+                    隨機分組
+                </button>
+            </div>
+            
+            <div class="group-results">
+                <h3 class="mb-2">分組結果</h3>
+                <div id="noGroupsMessage" class="text-gray-400">尚未進行分組，請點擊「隨機分組」</div>
+                <div class="group-container" id="groupResults">
+                    <!-- 分組結果會在這裡顯示 -->
+                </div>
+                
+                <button class="confirm-btn w-full mt-4 hidden" id="applyGroupsBtn">
+                    套用分組結果至賽車
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="logo-container">
+            <img src="https://i.imgur.com/UgsrJga.png" alt="比賽標誌" class="event-logo">
+        </div>
+        <h1 class="title">🏎️ AI 極速方程式 🏁</h1>
+        
+        <div class="game-board">
+            <div class="finish-line"></div>
+            
+            <div class="race-timer" id="raceTimer">00:00:000</div>
+            
+            <ul class="rankings" id="rankings">
+                <!-- Ranking items will be inserted here by JavaScript -->
+            </ul>
+            
+            <div class="control-panel">
+                <button class="btn" id="connectBtn">連接 Microbit</button>
+                <button class="btn btn-secondary" id="newRaceBtn">開始新比賽</button>
+                <button class="btn" id="debugBtn" style="background: #666;">切換調試模式</button>
+                <div class="connection-status">
+                    <div class="status-indicator" id="statusIndicator"></div>
+                    <span id="statusText">未連接</span>
+                </div>
+            </div>
+            
+            <div class="debug-panel" id="debugPanel">
+                <h3>調試按鈕 (模擬車輛過線)</h3>
+                <div id="debugButtons"></div>
+                
+                <h3 class="mt-4">信號日誌</h3>
+                <div id="signalLog" class="bg-black bg-opacity-50 text-green-400 font-mono p-3 rounded-lg h-40 overflow-auto text-sm"></div>
+            </div>
+        </div>
+        
+        <!-- 評判確認對話框 -->
+        <div id="judgeConfirmation" class="judge-confirmation">
+            <div class="confirmation-content">
+                <div class="confirmation-header">
+                    <h3 class="confirmation-title">評判確認</h3>
+                    <div class="countdown-timer" id="confirmationTimer">10</div>
+                </div>
+                <div class="confirmation-body">
+                    <p id="confirmationMessage">賽車 X 號通過終點線，確認此圈成績？</p>
+                </div>
+                <div class="confirmation-footer">
+                    <button id="confirmBtn" class="confirm-btn">確定</button>
+                    <button id="rejectBtn" class="reject-btn">否定</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 評判修改成績對話框 -->
+        <div id="editScoreDialog" class="judge-confirmation">
+            <div class="confirmation-content">
+                <div class="confirmation-header">
+                    <h3 class="confirmation-title">修改賽車成績</h3>
+                    <button id="closeEditDialog" class="close-btn">&times;</button>
+                </div>
+                <div class="confirmation-body">
+                    <p id="editCarInfo">賽車 X 號 - 目前圈數: 0</p>
+                    <div class="edit-controls">
+                        <div class="laps-control">
+                            <span>圈數調整:</span>
+                            <div class="laps-buttons">
+                                <button id="increaseLapBtn" class="edit-btn increase-btn">
+                                    <span class="btn-icon">+</span>增加圈數
+                                </button>
+                                <button id="decreaseLapBtn" class="edit-btn decrease-btn">
+                                    <span class="btn-icon">-</span>減少圈數
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="confirmation-footer">
+                    <button id="saveEditBtn" class="confirm-btn">儲存修改</button>
+                    <button id="cancelEditBtn" class="reject-btn">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 組別編輯對話框 -->
+    <div class="group-edit-dialog" id="groupEditDialog">
+        <div class="group-edit-content">
+            <div class="group-edit-header">
+                <h3 class="group-edit-title" id="groupEditTitle">編輯第 X 組</h3>
+                <button class="close-btn" id="closeGroupEditBtn">&times;</button>
+            </div>
+            <div class="group-edit-body">
+                <div class="group-edit-section">
+                    <label class="group-edit-label">目前成員</label>
+                    <div class="group-edit-members" id="groupEditMembers">
+                        <!-- 成員列表會被JS動態填充 -->
+                    </div>
+                </div>
+                <div class="group-edit-section">
+                    <label class="group-edit-label">新增成員</label>
+                    <div class="group-edit-add">
+                        <input type="text" class="group-edit-input" id="newGroupMember" placeholder="輸入新成員姓名">
+                        <button class="group-edit-add-btn" id="addGroupMemberBtn">
+                            <i class="fas fa-plus"></i> 新增
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="group-edit-footer">
+                <button class="group-edit-delete" id="deleteGroupBtn">刪除此組別</button>
+                <div class="group-edit-actions">
+                    <button class="group-edit-cancel" id="cancelGroupEditBtn">取消</button>
+                    <button class="group-edit-save" id="saveGroupEditBtn">儲存變更</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script>
+        // Check for dark mode preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+        
+        // Game state
+        let carData = [];
+        let raceStartTime = null;
+        let raceTimer = null;
+        let port = null;
+        let reader = null;
+        let isConnected = false;
+        let isRacing = false;
+        
+        // 背景音樂
+        let backgroundMusic = new Audio('https://cdn.jsdelivr.net/gh/jasonpang1030/srw.github.io@main/WaterPark.mp3');
+        
+        // 接收緩衝區，用於收集分散接收的字符
+        let signalBuffer = "";
+        
+        // 冷卻時間計時器（防止信號抖動）
+        const cooldownTime = 20000; // 20秒冷卻時間
+        let cooldowns = {}; // 用於跟踪每輛車的冷卻狀態
+        
+        // Initialize the game
+        function initGame() {
+            carData = [];
+            // Create car data for 9 cars
+            for (let i = 1; i <= 9; i++) {
+                carData.push({
+                    carNumber: i,
+                    carName: `${i}號車`,
+                    lapsCompleted: 0,
+                    lapTimes: [],
+                    finishTime: null,
+                    position: i,
+                    visible: true // 所有車輛初始化為可見
+                });
+            }
+            
+            updateRankings();
+            generateDebugButtons();
+        }
+        
+        // 保存上一次的排名數據，用於比較變化
+        let previousPositions = {};
+        
+        // Update the rankings display
+        function updateRankings() {
+            // 儲存當前位置以便與下一次更新比較
+            carData.forEach(car => {
+                previousPositions[car.carNumber] = car.position || 999; // 如果未定義，給一個大數
+            });
+            
+            const rankingsElement = document.getElementById('rankings');
+            rankingsElement.innerHTML = '';
+            
+            // 首先只保留 visible 為 true 的車輛
+            let visibleCars = carData.filter(car => car.visible);
+            
+            // Sort cars: first by completed laps (desc), then by finish time if completed
+            const sortedCars = [...visibleCars].sort((a, b) => {
+                // 完成比賽的車優先排在前面
+                if (a.finishTime !== null && b.finishTime === null) {
+                    return -1;
+                } else if (a.finishTime === null && b.finishTime !== null) {
+                    return 1;
+                } 
+                // 兩車都完成比賽，按完成時間排序
+                else if (a.finishTime !== null && b.finishTime !== null) {
+                    return a.finishTime - b.finishTime;
+                } 
+                // 兩車都未完成比賽，按已完成圈數排序
+                else {
+                    if (a.lapsCompleted !== b.lapsCompleted) {
+                        return b.lapsCompleted - a.lapsCompleted;
+                    }
+                    // 圈數相同，按最後一圈時間排序
+                    else if (a.lapTimes.length > 0 && b.lapTimes.length > 0) {
+                        return a.lapTimes[a.lapTimes.length - 1] - b.lapTimes[b.lapTimes.length - 1];
+                    }
+                    // 沒有任何比賽數據，按車號排序
+                    else {
+                        return a.carNumber - b.carNumber;
+                    }
+                }
+            });
+            
+            // Update positions
+            sortedCars.forEach((car, index) => {
+                car.position = index + 1;
+            });
+            
+            // 創建兩欄容器
+            const leftColumnDiv = document.createElement('div');
+            leftColumnDiv.className = 'rankings-column';
+            
+            const rightColumnDiv = document.createElement('div');
+            rightColumnDiv.className = 'rankings-column';
+            
+            // 將排名平均分配到兩欄
+            sortedCars.forEach((car, index) => {
+                const rankingItem = document.createElement('li');
+                rankingItem.className = `ranking-item car-${car.carNumber}`;
+                
+                // 檢查排名變化並添加動畫效果
+                if (previousPositions[car.carNumber] && previousPositions[car.carNumber] !== car.position) {
+                    // 排名上升
+                    if (previousPositions[car.carNumber] > car.position) {
+                        rankingItem.classList.add('item-new');
+                        
+                        // 延遲添加.rank-new，使其在滑入動畫之後執行
+                        setTimeout(() => {
+                            const rankElement = rankingItem.querySelector('.rank');
+                            if (rankElement) rankElement.classList.add('rank-new');
+                        }, 500);
+                    }
+                }
+                
+                // 新車或完成新圈數的車輛添加動畫
+                if (!previousPositions[car.carNumber] || car.lapsCompleted > 0) {
+                    rankingItem.classList.add('item-new');
+                }
+                
+                // 添加前三名的特殊類 (只給已完成比賽的車輛)
+                if (car.finishTime !== null) {
+                    if (car.position === 1) {
+                        rankingItem.classList.add('winner');
+                    } else if (car.position === 2) {
+                        rankingItem.classList.add('second-place');
+                    } else if (car.position === 3) {
+                        rankingItem.classList.add('third-place');
+                    }
+                }
+                
+                // 獲取要顯示的時間，根據車輛狀態顯示不同的資訊
+                let timeString = '-- : -- . ---';
+                let timeLabel = '進行中...';
+                
+                if (car.finishTime) {
+                    // 完成比賽顯示總時間
+                    timeString = formatTime(car.finishTime);
+                    timeLabel = '完成時間';
+                } else if (car.lapTimes.length > 0) {
+                    // 如果有圈數記錄，顯示最近一次圈速
+                    if (car.lapTimes.length === 1) {
+                        // 第一圈顯示總時間
+                        timeString = formatTime(car.lapTimes[0]);
+                        timeLabel = '第1圈時間';
+                    } else {
+                        // 計算圈速（當前圈時間與上一圈時間的差值）
+                        const lastLapIndex = car.lapTimes.length - 1;
+                        const lapDuration = car.lapTimes[lastLapIndex] - car.lapTimes[lastLapIndex - 1];
+                        timeString = formatTime(lapDuration);
+                        timeLabel = `第${car.lapsCompleted}圈時間`;
+                    }
+                }
+                
+                let lapCountHTML = '';
+                if (car.lapsCompleted > 0 && car.finishTime === null) {
+                    lapCountHTML = `<div class="lap-count">${car.lapsCompleted}/3 圈</div>`;
+                }
+                
+                rankingItem.innerHTML = `
+                    <div class="rank">${car.position}</div>
+                    <div class="car-number">
+                        <div class="car-avatar">${car.carNumber}</div>
+                    </div>
+                    <div class="car-info">
+                        <div class="car-name">${car.carName}</div>
+                        <div class="lap-time">${timeLabel}</div>
+                    </div>
+                    ${lapCountHTML}
+                    <div class="time">${timeString}</div>
+                `;
+                
+                // 偶數位置放左邊，奇數位置放右邊
+                if (index % 2 === 0) {
+                    leftColumnDiv.appendChild(rankingItem);
+                } else {
+                    rightColumnDiv.appendChild(rankingItem);
+                }
+            });
+            
+            // 添加到容器
+            const rankingsRow = document.createElement('div');
+            rankingsRow.className = 'rankings-row';
+            rankingsRow.appendChild(leftColumnDiv);
+            rankingsRow.appendChild(rightColumnDiv);
+            
+            rankingsElement.appendChild(rankingsRow);
+        }
+        
+        // Format time in mm:ss.ms format
+        function formatTime(timeMs) {
+            const minutes = Math.floor(timeMs / 60000);
+            const seconds = Math.floor((timeMs % 60000) / 1000);
+            const ms = timeMs % 1000;
+            
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+        }
+        
+        // Update the race timer display
+        function updateRaceTimer() {
+            if (!raceStartTime || !isRacing) return;
+            
+            const currentTime = Date.now() - raceStartTime;
+            document.getElementById('raceTimer').textContent = formatTime(currentTime);
+        }
+        
+        // Start a new race
+        function startNewRace() {
+            console.log(`[${new Date().toISOString()}] 開始新比賽！`);
+            
+            // Reset car data
+            carData.forEach(car => {
+                car.lapsCompleted = 0;
+                car.lapTimes = [];
+                car.finishTime = null;
+                car.position = car.carNumber;
+            });
+            
+            // Clear signal buffer and reset cooldowns when starting a new race
+            signalBuffer = "";
+            cooldowns = {}; // 重置所有冷卻時間
+            console.log(`[${new Date().toISOString()}] 已清空信號緩衝區和冷卻時間`);
+            
+            // Update UI
+            updateRankings();
+            
+            // Reset and start timer
+            raceStartTime = Date.now();
+            isRacing = true;
+            
+            if (raceTimer) {
+                clearInterval(raceTimer);
+            }
+            
+            raceTimer = setInterval(updateRaceTimer, 10);
+            
+            // Add confetti for race start
+            createConfetti(20);
+            
+            // Update status
+            document.getElementById('statusText').textContent = isConnected ? '已連接 - 比賽進行中' : '未連接 - 比賽進行中';
+            
+            // Log car data initial state
+            console.log(`[${new Date().toISOString()}] 比賽開始，初始車輛狀態：`, JSON.stringify(carData));
+            
+            // 播放背景音樂
+            try {
+                // 先停止當前播放的任何音樂
+                backgroundMusic.pause();
+                backgroundMusic.currentTime = 0;
+                
+                // 設置循環播放
+                backgroundMusic.loop = true;
+                
+                // 播放音樂
+                backgroundMusic.play().catch(error => {
+                    console.error('背景音樂播放失敗:', error);
+                });
+                
+                console.log(`[${new Date().toISOString()}] 開始播放背景音樂`);
+            } catch (error) {
+                console.error('背景音樂設置失敗:', error);
+            }
+        }
+        
+        // Register car lap completion
+        function registerLap(carNumber) {
+            if (!isRacing) {
+                console.log(`[${new Date().toISOString()}] 賽車${carNumber}號過線，但比賽尚未開始或已結束`);
+                return;
+            }
+            
+            const carIndex = carData.findIndex(car => car.carNumber === carNumber);
+            if (carIndex === -1) {
+                console.error(`[${new Date().toISOString()}] 錯誤：找不到賽車${carNumber}號`);
+                return;
+            }
+            
+            const currentTime = Date.now() - raceStartTime;
+            console.log(`[${new Date().toISOString()}] 賽車${carNumber}號過線，當前時間：${formatTime(currentTime)}`);
+            
+            // 如果還沒完成比賽（尚未完成3圈）
+            if (carData[carIndex].finishTime === null) {
+                // 增加已完成圈數
+                carData[carIndex].lapsCompleted += 1;
+                
+                // 記錄當前圈資訊
+                const lapNum = carData[carIndex].lapsCompleted;
+                const lapTime = currentTime;
+                carData[carIndex].lapTimes.push(lapTime);
+                
+                // 記錄完整圈數資訊到控制台
+                console.log(`[${new Date().toISOString()}] 賽車${carNumber}號完成第${lapNum}圈，時間：${formatTime(lapTime)}`);
+                
+                // 播放音效
+                const audio = new Audio('data:audio/wav;base64,UklGRn4AAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YVoAAAAMAB4AbADHAA4BQQFRAUABFwHWAIMAIACi/07/EP/4/vX+B/8z/3r/yf8fAHQAxAAGATkBWQFUAUEBDwG/AGIAAQCJ/zv/AP/p/u3+A/8y/3v/0v8sAIEAzwAQAT4BVwFQATkBBwGwAFEA');
+                audio.play();
+                
+                // 更新介面
+                const signalLog = document.getElementById('signalLog');
+                const timestamp = new Date().toLocaleTimeString();
+                const lapEntry = document.createElement('div');
+                lapEntry.innerHTML = `<span class="text-green-300">[${timestamp}]</span> <span class="text-yellow-500">${carNumber}號車完成第 ${carData[carIndex].lapsCompleted} 圈</span>`;
+                signalLog.appendChild(lapEntry);
+                signalLog.scrollTop = signalLog.scrollHeight;
+                
+                // 如果完成3圈，設定完成時間和位置
+                if (carData[carIndex].lapsCompleted >= 3) {
+                    carData[carIndex].finishTime = currentTime;
+                    
+                    // 顯示車輛完成比賽
+                    const finishEntry = document.createElement('div');
+                    finishEntry.innerHTML = `<span class="text-red-300">[${timestamp}]</span> <span class="text-yellow-300">賽車 ${carNumber} 號完成比賽! 時間: ${formatTime(currentTime)}</span>`;
+                    signalLog.appendChild(finishEntry);
+                    signalLog.scrollTop = signalLog.scrollHeight;
+                    
+                    // 記錄完成比賽資訊到控制台
+                    console.log(`[${new Date().toISOString()}] 賽車${carNumber}號完成比賽！總時間：${formatTime(currentTime)}`);
+                    
+                    // 檢查所有車輛是否都完成比賽
+                    const allFinished = carData.every(car => car.finishTime !== null);
+                    if (allFinished) {
+                        console.log(`[${new Date().toISOString()}] 所有賽車完成比賽，比賽結束！`);
+                        endRace();
+                    }
+                }
+                
+                // 更新排名
+                updateRankings();
+                
+                // 添加高亮動畫到對應排名項目
+                const rankingItems = document.querySelectorAll('.ranking-item');
+                rankingItems.forEach((item, index) => {
+                    if (item.classList.contains(`car-${carNumber}`)) {
+                        item.classList.add('highlight');
+                        setTimeout(() => {
+                            item.classList.remove('highlight');
+                        }, 1000);
+                        
+                        // 如果完成比賽且進入前三名，添加向上移動動畫
+                        if (carData[carIndex].finishTime !== null && carData[carIndex].position <= 3) {
+                            item.classList.add('move-up');
+                            setTimeout(() => {
+                                item.classList.remove('move-up');
+                            }, 500);
+                        }
+                    }
+                });
+                
+                // 如果是第一名完成比賽，添加五彩紙屑效果
+                const sortedFinishedCars = carData
+                    .filter(car => car.finishTime !== null)
+                    .sort((a, b) => a.finishTime - b.finishTime);
+                
+                if (sortedFinishedCars.length === 1 && sortedFinishedCars[0].carNumber === carNumber) {
+                    console.log(`[${new Date().toISOString()}] 賽車${carNumber}號成為第一名完成比賽！`);
+                    createConfetti(50);
+                }
+            } else {
+                console.log(`[${new Date().toISOString()}] 賽車${carNumber}號已完成比賽，忽略此信號`);
+            }
+        }
+        
+        // End the race
+        function endRace(userStopped = false) {
+            isRacing = false;
+            clearInterval(raceTimer);
+            document.getElementById('statusText').textContent = isConnected ? '已連接 - 比賽結束' : '未連接 - 比賽結束';
+            
+            // 如果是用戶手動停止，則停止背景音樂，否則（自然結束）播放五彩紙屑
+            if (userStopped) {
+                // 停止背景音樂
+                backgroundMusic.pause();
+                backgroundMusic.currentTime = 0;
+                console.log(`[${new Date().toISOString()}] 使用者停止比賽，音樂已停止`);
+            } else {
+                // 比賽自然結束，播放慶祝效果
+                createConfetti(100);
+            }
+            
+            // 更新按鈕文字
+            updateRaceButton();
+        }
+        
+        // Create confetti effect
+        function createConfetti(count) {
+            const colors = ['#ff4500', '#ffc107', '#2ecc71', '#3498db', '#9b59b6', '#e74c3c'];
+            const gameBoard = document.querySelector('.game-board');
+            
+            for (let i = 0; i < count; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.top = '0';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                confetti.style.animationDelay = (Math.random() * 2) + 's';
+                confetti.style.width = (Math.random() * 10 + 5) + 'px';
+                confetti.style.height = (Math.random() * 10 + 5) + 'px';
+                confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                
+                gameBoard.appendChild(confetti);
+                
+                // Remove confetti after animation
+                setTimeout(() => {
+                    confetti.remove();
+                }, 5000);
+            }
+        }
+        
+        // Connect to Microbit
+        async function connectToMicrobit() {
+            try {
+                // Request serial port access
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 9600 });
+                
+                // Set up the reader
+                const decoder = new TextDecoder();
+                reader = port.readable.getReader();
+                
+                isConnected = true;
+                document.getElementById('statusIndicator').classList.add('connected');
+                document.getElementById('statusText').textContent = '已連接';
+                document.getElementById('connectBtn').textContent = '斷開連接';
+                
+                // Start reading data
+                readSerialData();
+                
+            } catch (error) {
+                document.getElementById('statusText').textContent = '連接失敗';
+                isConnected = false;
+            }
+        }
+        
+        // Disconnect from Microbit
+        async function disconnectFromMicrobit() {
+            if (reader) {
+                await reader.cancel();
+                reader = null;
+            }
+            
+            if (port) {
+                await port.close();
+                port = null;
+            }
+            
+            isConnected = false;
+            document.getElementById('statusIndicator').classList.remove('connected');
+            document.getElementById('statusText').textContent = '未連接';
+            document.getElementById('connectBtn').textContent = '連接 Microbit';
+        }
+        
+        // Read serial data from Microbit
+        async function readSerialData() {
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        break;
+                    }
+                    
+                    // Process received data
+                    const text = new TextDecoder().decode(value);
+                    processReceivedData(text);
+                }
+            } catch (error) {
+                // 讀取錯誤處理
+            } finally {
+                disconnectFromMicrobit();
+            }
+        }
+        
+        // 評判確認相關變數
+        let confirmationTimer = null;
+        let confirmationTimeLeft = 10;
+        let currentConfirmation = null;
+        
+        // 顯示評判確認對話框
+        function showJudgeConfirmation(carNumber) {
+            // 如果已有評判確認對話框正在顯示，取消之前的確認
+            if (currentConfirmation) {
+                rejectConfirmation();
+            }
+            
+            const judgeConfirmation = document.getElementById('judgeConfirmation');
+            const confirmationMessage = document.getElementById('confirmationMessage');
+            const timerDisplay = document.getElementById('confirmationTimer');
+            
+            // 設置要確認的車輛號碼
+            confirmationMessage.textContent = `${carNumber}號車通過終點線，確認此圈成績？`;
+            
+            // 保存當前確認信息
+            currentConfirmation = {
+                carNumber: carNumber,
+                timestamp: Date.now() - raceStartTime
+            };
+            
+            // 重置倒計時
+            confirmationTimeLeft = 10;
+            timerDisplay.textContent = confirmationTimeLeft;
+            
+            // 顯示確認對話框
+            judgeConfirmation.style.display = 'block';
+            
+            // 開始倒計時
+            if (confirmationTimer) {
+                clearInterval(confirmationTimer);
+            }
+            
+            confirmationTimer = setInterval(() => {
+                confirmationTimeLeft--;
+                timerDisplay.textContent = confirmationTimeLeft;
+                
+                if (confirmationTimeLeft <= 0) {
+                    clearInterval(confirmationTimer);
+                    rejectConfirmation(); // 超時自動拒絕
+                }
+            }, 1000);
+            
+            // 記錄到日誌
+            console.log(`[${new Date().toISOString()}] 等待評判確認: 賽車${carNumber}號`);
+        }
+        
+        // 確認信號
+        function confirmSignal() {
+            if (!currentConfirmation) return;
+            
+            clearInterval(confirmationTimer);
+            
+            const judgeConfirmation = document.getElementById('judgeConfirmation');
+            judgeConfirmation.style.display = 'none';
+            
+            const carNumber = currentConfirmation.carNumber;
+            const timestamp = currentConfirmation.timestamp;
+            
+            // 記錄到日誌
+            console.log(`[${new Date().toISOString()}] 評判確認通過: 賽車${carNumber}號`);
+            
+            // 添加確認信息到信號日誌
+            const signalLog = document.getElementById('signalLog');
+            const timeFormatted = new Date().toLocaleTimeString();
+            const confirmEntry = document.createElement('div');
+            confirmEntry.innerHTML = `<span class="text-green-300">[${timeFormatted}]</span> <span class="text-white">評判確認: 賽車 ${carNumber} 號成績有效</span>`;
+            signalLog.appendChild(confirmEntry);
+            signalLog.scrollTop = signalLog.scrollHeight;
+            
+            // 註冊車輛完成一圈
+            registerLap(carNumber);
+            
+            // 設置冷卻時間
+            setCarCooldown(carNumber);
+            
+            currentConfirmation = null;
+        }
+        
+        // 拒絕信號
+        function rejectConfirmation() {
+            if (!currentConfirmation) return;
+            
+            clearInterval(confirmationTimer);
+            
+            const judgeConfirmation = document.getElementById('judgeConfirmation');
+            judgeConfirmation.style.display = 'none';
+            
+            const carNumber = currentConfirmation.carNumber;
+            
+            // 記錄到日誌
+            const reason = confirmationTimeLeft <= 0 ? '時間超過' : '評判否決';
+            console.log(`[${new Date().toISOString()}] 信號被拒絕(${reason}): 賽車${carNumber}號`);
+            
+            // 添加拒絕信息到信號日誌
+            const signalLog = document.getElementById('signalLog');
+            const timeFormatted = new Date().toLocaleTimeString();
+            const rejectEntry = document.createElement('div');
+            rejectEntry.innerHTML = `<span class="text-red-300">[${timeFormatted}]</span> <span class="text-gray-400">信號已拒絕(${reason}): 賽車 ${carNumber} 號成績無效</span>`;
+            signalLog.appendChild(rejectEntry);
+            signalLog.scrollTop = signalLog.scrollHeight;
+            
+            currentConfirmation = null;
+        }
+        
+        // Process received data from Microbit
+        function processReceivedData(data) {
+            // 記錄接收到的原始數據到控制台
+            console.log(`[${new Date().toISOString()}] 收到原始資料: ${JSON.stringify(data.trim())}`);
+            
+            // Add data to signal log UI
+            const signalLog = document.getElementById('signalLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span class="text-yellow-300">[${timestamp}]</span> ${data.trim()}`;
+            signalLog.appendChild(logEntry);
+            signalLog.scrollTop = signalLog.scrollHeight; // Auto-scroll to bottom
+            
+            // 將新收到的字符添加到緩衝區
+            signalBuffer += data;
+            
+            // 檢查緩衝區中是否包含完整的比賽信號 (lapX+)
+            const lapRegex = /lap(\d+)\+/g;
+            let match;
+            
+            // 尋找所有匹配項
+            while ((match = lapRegex.exec(signalBuffer)) !== null) {
+                const fullMatch = match[0];
+                const carNumber = parseInt(match[1], 10);
+                
+                if (carNumber >= 1 && carNumber <= 9) {
+                    // 在界面上顯示完整信號
+                    const completeSignalEntry = document.createElement('div');
+                    completeSignalEntry.innerHTML = `<span class="text-blue-300">[${timestamp}]</span> <span class="text-yellow-500">完整信號檢測到:</span> ${fullMatch}`;
+                    signalLog.appendChild(completeSignalEntry);
+                    signalLog.scrollTop = signalLog.scrollHeight;
+                    
+                    // 記錄檢測到的完整信號到控制台
+                    console.log(`[${new Date().toISOString()}] 檢測到完整信號: ${fullMatch}, 車輛: ${carNumber}號車`);
+                    
+                    // 檢查車輛是否處於冷卻狀態
+                    if (isCarInCooldown(carNumber)) {
+                        console.log(`[${new Date().toISOString()}] 賽車${carNumber}號在冷卻期內，忽略此信號`);
+                        
+                        // 顯示冷卻狀態在日誌中
+                        const cooldownEntry = document.createElement('div');
+                        cooldownEntry.innerHTML = `<span class="text-red-300">[${timestamp}]</span> <span class="text-gray-400">賽車 ${carNumber} 號在冷卻期內，忽略此信號</span>`;
+                        signalLog.appendChild(cooldownEntry);
+                        signalLog.scrollTop = signalLog.scrollHeight;
+                    } else {
+                        // 顯示評判確認對話框
+                        showJudgeConfirmation(carNumber);
+                        
+                        // 不再立即註冊圈數和設置冷卻期，而是等待評判確認
+                    }
+                }
+            }
+            
+            // 保持緩衝區在合理大小範圍內（保留最後 100 個字符）
+            if (signalBuffer.length > 100) {
+                signalBuffer = signalBuffer.slice(-100);
+            }
+        }
+        
+        // 檢查車輛是否處於冷卻期
+        function isCarInCooldown(carNumber) {
+            return cooldowns[carNumber] && (Date.now() < cooldowns[carNumber]);
+        }
+        
+        // 設置車輛的冷卻期
+        function setCarCooldown(carNumber) {
+            cooldowns[carNumber] = Date.now() + cooldownTime;
+            console.log(`[${new Date().toISOString()}] 設置賽車${carNumber}號冷卻期，將於 ${new Date(cooldowns[carNumber]).toLocaleTimeString()} 結束`);
+            
+            // 設置冷卻結束後的回調
+            setTimeout(() => {
+                console.log(`[${new Date().toISOString()}] 賽車${carNumber}號冷卻期已結束，可以接收新信號`);
+            }, cooldownTime);
+        }
+        
+        // Generate debug buttons for testing
+        function generateDebugButtons() {
+            const debugButtonsContainer = document.getElementById('debugButtons');
+            debugButtonsContainer.innerHTML = '';
+            
+            for (let i = 1; i <= 9; i++) {
+                const button = document.createElement('button');
+                button.className = 'debug-btn';
+                button.textContent = `模擬 ${i} 號車`;
+                button.addEventListener('click', () => {
+                    // 顯示評判確認對話框，而不是直接註冊圈數
+                    showJudgeConfirmation(i);
+                });
+                debugButtonsContainer.appendChild(button);
+            }
+        }
+        
+        // Toggle debug panel visibility
+        function toggleDebugPanel() {
+            const debugPanel = document.getElementById('debugPanel');
+            if (debugPanel.style.display === 'none' || debugPanel.style.display === '') {
+                debugPanel.style.display = 'block';
+                // 顯示調試面板時自動開啟信號日誌區域
+                document.getElementById('signalLog').style.display = 'block';
+            } else {
+                debugPanel.style.display = 'none';
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            if (isConnected) {
+                await disconnectFromMicrobit();
+            } else {
+                await connectToMicrobit();
+            }
+        });
+        
+        // 更新比賽按鈕文字與顏色
+        function updateRaceButton() {
+            const raceButton = document.getElementById('newRaceBtn');
+            if (isRacing) {
+                raceButton.textContent = '停止比賽';
+                raceButton.style.background = '#f44336'; // 紅色
+            } else {
+                raceButton.textContent = '開始新比賽';
+                raceButton.style.background = ''; // 重置為預設值
+                raceButton.classList.add('btn-secondary');
+            }
+        }
+        
+        // 處理比賽按鈕點擊
+        document.getElementById('newRaceBtn').addEventListener('click', () => {
+            if (isRacing) {
+                // 如果正在比賽，則停止比賽
+                endRace(true); // 傳入 true 表示是用戶手動停止
+            } else {
+                // 如果沒在比賽，則開始新比賽
+                startNewRace();
+                updateRaceButton();
+            }
+        });
+        
+        document.getElementById('debugBtn').addEventListener('click', () => {
+            toggleDebugPanel();
+        });
+        
+        // 創建背景粒子
+        function createBackgroundParticles() {
+            const particlesContainer = document.getElementById('particles');
+            particlesContainer.innerHTML = '';
+            
+            // 添加星星
+            for (let i = 0; i < 50; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.top = `${Math.random() * 100}%`;
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.opacity = Math.random() * 0.7 + 0.3;
+                star.style.animation = `shine ${Math.random() * 3 + 2}s ease-in-out infinite`;
+                star.style.animationDelay = `${Math.random() * 5}s`;
+                particlesContainer.appendChild(star);
+            }
+            
+            // 添加路燈效果
+            for (let i = 0; i < 15; i++) {
+                const light = document.createElement('div');
+                light.className = 'road-light';
+                light.style.top = `${Math.random() * 100}%`;
+                light.style.left = `${Math.random() * 100}%`;
+                light.style.animation = `road-light ${Math.random() * 4 + 3}s ease-in-out infinite`;
+                light.style.animationDelay = `${Math.random() * 5}s`;
+                particlesContainer.appendChild(light);
+            }
+            
+            // 添加粒子
+            for (let i = 0; i < 30; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.top = `${Math.random() * 100}%`;
+                particle.style.left = `${Math.random() * 100}%`;
+                particle.style.opacity = Math.random() * 0.5 + 0.2;
+                particle.style.animation = `particle-animation ${Math.random() * 10 + 10}s ease-in-out infinite`;
+                particle.style.animationDelay = `${Math.random() * 10}s`;
+                particlesContainer.appendChild(particle);
+            }
+        }
+        
+        // 評判修改成績相關變數
+        let currentEditingCar = null;
+        
+        // 顯示修改成績對話框
+        function showEditScoreDialog(carNumber) {
+            // 確保比賽已經開始
+            if (!isRacing && !document.getElementById('raceTimer').textContent.trim() !== "00:00:000") {
+                alert("請先開始比賽");
+                return;
+            }
+            
+            const carIndex = carData.findIndex(car => car.carNumber === carNumber);
+            if (carIndex === -1) {
+                console.error(`錯誤：找不到賽車${carNumber}號`);
+                return;
+            }
+            
+            // 設置當前正在編輯的車輛
+            currentEditingCar = carData[carIndex];
+            
+            // 更新對話框內容
+            const editDialog = document.getElementById('editScoreDialog');
+            const editCarInfo = document.getElementById('editCarInfo');
+            editCarInfo.textContent = `${carNumber}號車 - 目前圈數: ${currentEditingCar.lapsCompleted}`;
+            
+            // 根據當前狀態啟用/禁用按鈕
+            const decreaseBtn = document.getElementById('decreaseLapBtn');
+            const increaseBtn = document.getElementById('increaseLapBtn');
+            
+            // 禁用減少按鈕如果圈數為0
+            decreaseBtn.disabled = currentEditingCar.lapsCompleted <= 0;
+            decreaseBtn.style.opacity = currentEditingCar.lapsCompleted <= 0 ? "0.5" : "1";
+            
+            // 禁用增加按鈕如果已完成比賽（3圈）
+            increaseBtn.disabled = currentEditingCar.lapsCompleted >= 3;
+            increaseBtn.style.opacity = currentEditingCar.lapsCompleted >= 3 ? "0.5" : "1";
+            
+            // 顯示對話框
+            editDialog.style.display = 'block';
+        }
+        
+        // 增加車輛圈數
+        function increaseCarLaps() {
+            if (!currentEditingCar || currentEditingCar.lapsCompleted >= 3) return;
+            
+            const carNumber = currentEditingCar.carNumber;
+            const currentTime = Date.now() - raceStartTime;
+            
+            // 記錄到日誌
+            console.log(`[${new Date().toISOString()}] 評判增加圈數: 賽車${carNumber}號`);
+            
+            // 添加到信號日誌
+            const signalLog = document.getElementById('signalLog');
+            const timeFormatted = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.innerHTML = `<span class="text-blue-300">[${timeFormatted}]</span> <span class="text-yellow-300">評判手動增加圈數: 賽車 ${carNumber} 號</span>`;
+            signalLog.appendChild(entry);
+            signalLog.scrollTop = signalLog.scrollHeight;
+            
+            // 更新對話框中的圈數信息
+            currentEditingCar.lapsCompleted += 1;
+            document.getElementById('editCarInfo').textContent = `賽車 ${carNumber} 號 - 目前圈數: ${currentEditingCar.lapsCompleted}`;
+            
+            // 更新圈數時間記錄
+            currentEditingCar.lapTimes.push(currentTime);
+            
+            // 如果達到3圈，設置完成時間
+            if (currentEditingCar.lapsCompleted >= 3) {
+                currentEditingCar.finishTime = currentTime;
+                
+                // 顯示完成比賽信息
+                const finishEntry = document.createElement('div');
+                finishEntry.innerHTML = `<span class="text-red-300">[${timeFormatted}]</span> <span class="text-yellow-300">賽車 ${carNumber} 號完成比賽! 時間: ${formatTime(currentTime)}</span>`;
+                signalLog.appendChild(finishEntry);
+                signalLog.scrollTop = signalLog.scrollHeight;
+                
+                // 禁用增加按鈕
+                const increaseBtn = document.getElementById('increaseLapBtn');
+                increaseBtn.disabled = true;
+                increaseBtn.style.opacity = "0.5";
+                
+                // 檢查所有車輛是否都完成比賽
+                const allFinished = carData.every(car => car.finishTime !== null);
+                if (allFinished) {
+                    console.log(`[${new Date().toISOString()}] 所有賽車完成比賽，比賽結束！`);
+                    endRace();
+                }
+            }
+            
+            // 啟用減少按鈕
+            const decreaseBtn = document.getElementById('decreaseLapBtn');
+            decreaseBtn.disabled = false;
+            decreaseBtn.style.opacity = "1";
+            
+            // 更新排名
+            updateRankings();
+        }
+        
+        // 減少車輛圈數
+        function decreaseCarLaps() {
+            if (!currentEditingCar || currentEditingCar.lapsCompleted <= 0) return;
+            
+            const carNumber = currentEditingCar.carNumber;
+            
+            // 記錄到日誌
+            console.log(`[${new Date().toISOString()}] 評判減少圈數: 賽車${carNumber}號`);
+            
+            // 添加到信號日誌
+            const signalLog = document.getElementById('signalLog');
+            const timeFormatted = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.innerHTML = `<span class="text-blue-300">[${timeFormatted}]</span> <span class="text-red-300">評判手動減少圈數: 賽車 ${carNumber} 號</span>`;
+            signalLog.appendChild(entry);
+            signalLog.scrollTop = signalLog.scrollHeight;
+            
+            // 更新對話框中的圈數信息
+            currentEditingCar.lapsCompleted -= 1;
+            document.getElementById('editCarInfo').textContent = `賽車 ${carNumber} 號 - 目前圈數: ${currentEditingCar.lapsCompleted}`;
+            
+            // 如果之前已經完成了比賽，現在撤銷完成狀態
+            if (currentEditingCar.finishTime !== null) {
+                currentEditingCar.finishTime = null;
+            }
+            
+            // 從時間記錄中移除最後一筆
+            if (currentEditingCar.lapTimes.length > 0) {
+                currentEditingCar.lapTimes.pop();
+            }
+            
+            // 禁用減少按鈕如果圈數為0
+            const decreaseBtn = document.getElementById('decreaseLapBtn');
+            decreaseBtn.disabled = currentEditingCar.lapsCompleted <= 0;
+            decreaseBtn.style.opacity = currentEditingCar.lapsCompleted <= 0 ? "0.5" : "1";
+            
+            // 啟用增加按鈕
+            const increaseBtn = document.getElementById('increaseLapBtn');
+            increaseBtn.disabled = false;
+            increaseBtn.style.opacity = "1";
+            
+            // 更新排名
+            updateRankings();
+        }
+        
+        // 關閉修改成績對話框
+        function closeEditScoreDialog() {
+            document.getElementById('editScoreDialog').style.display = 'none';
+            currentEditingCar = null;
+        }
+        
+        // 參賽者管理系統相關變數與功能
+        let participants = []; // 參賽者列表
+        let backupParticipants = []; // 後備名單（已刪除的參賽者）
+        let groups = []; // 分組結果
+        
+        // 側邊欄切換
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            sidebar.classList.toggle('open');
+            toggle.classList.toggle('open');
+        }
+        
+        // 切換頁籤
+        function switchTab(tabName) {
+            // 移除所有頁籤和內容的active類別
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // 將選中的頁籤和內容添加active類別
+            document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        }
+        
+        // 處理CSV文件上傳
+        function handleFileUpload(file) {
+            const reader = new FileReader();
+            reader.readAsText(file);
+            
+            reader.onload = function(event) {
+                const csvData = event.target.result;
+                participants = parseCSV(csvData);
+                
+                // 顯示上傳結果
+                document.getElementById('loadedCount').textContent = participants.length;
+                document.getElementById('csvResult').classList.remove('hidden');
+                
+                // 更新參賽者列表
+                updateParticipantsList();
+            };
+            
+            reader.onerror = function() {
+                alert('檔案讀取錯誤');
+            };
+        }
+        
+        // 解析CSV數據
+        function parseCSV(csvData) {
+            // 分割行，過濾空行，並移除空白
+            return csvData.split(/\r?\n/)
+                .filter(line => line.trim() !== '')
+                .map(line => line.trim());
+        }
+        
+        // 更新參賽者列表
+        function updateParticipantsList() {
+            const container = document.getElementById('participantsList');
+            container.innerHTML = '';
+            
+            participants.forEach((name, index) => {
+                const item = document.createElement('div');
+                item.className = 'participant-item';
+                item.innerHTML = `
+                    <div class="participant-name">${name}</div>
+                    <button class="delete-btn" data-index="${index}" title="移至後備名單">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                container.appendChild(item);
+            });
+            
+            // 更新計數
+            document.getElementById('participantCount').textContent = participants.length;
+            
+            // 為刪除按鈕添加事件監聽器
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    if (!isNaN(index)) {
+                        // 將刪除的參賽者移到後備名單
+                        const removedParticipant = participants.splice(index, 1)[0];
+                        backupParticipants.push(removedParticipant);
+                        
+                        // 更新兩個列表
+                        updateParticipantsList();
+                        updateBackupList();
+                    }
+                });
+            });
+            
+            // 如果參賽者列表為空，顯示提示
+            if (participants.length === 0) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'text-gray-400 text-center py-4';
+                emptyMsg.textContent = '目前沒有參賽者，請添加參賽者或從後備名單還原';
+                container.appendChild(emptyMsg);
+            }
+        }
+        
+        // 更新後備名單
+        function updateBackupList() {
+            const container = document.getElementById('backupList');
+            container.innerHTML = '';
+            
+            backupParticipants.forEach((name, index) => {
+                const item = document.createElement('div');
+                item.className = 'participant-item';
+                item.innerHTML = `
+                    <div class="participant-name">${name}</div>
+                    <button class="restore-btn" data-index="${index}" title="還原至參賽者名單">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                `;
+                container.appendChild(item);
+            });
+            
+            // 更新計數
+            document.getElementById('backupCount').textContent = backupParticipants.length;
+            
+            // 為還原按鈕添加事件監聽器
+            document.querySelectorAll('.restore-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    if (!isNaN(index)) {
+                        // 將後備名單的參賽者還原到參賽者列表
+                        const restoredParticipant = backupParticipants.splice(index, 1)[0];
+                        participants.push(restoredParticipant);
+                        
+                        // 更新兩個列表
+                        updateParticipantsList();
+                        updateBackupList();
+                    }
+                });
+            });
+            
+            // 如果後備名單為空，顯示提示
+            if (backupParticipants.length === 0) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'text-gray-400 text-center py-4';
+                emptyMsg.textContent = '目前沒有後備參賽者';
+                container.appendChild(emptyMsg);
+            }
+        }
+        
+        // 添加新參賽者
+        function addParticipant(name) {
+            if (name && name.trim() !== '') {
+                participants.push(name.trim());
+                document.getElementById('newParticipantName').value = '';
+                updateParticipantsList();
+            }
+        }
+        
+        // 隨機分組
+        function randomizeGroups() {
+            const groupCount = parseInt(document.getElementById('groupCount').value);
+            const membersPerGroup = parseInt(document.getElementById('membersPerGroup').value);
+            
+            // 驗證輸入
+            if (isNaN(groupCount) || groupCount < 1 || groupCount > 9) {
+                alert('分組數量必須在1到9之間');
+                return;
+            }
+            
+            if (isNaN(membersPerGroup) || membersPerGroup < 1) {
+                alert('每組人數必須大於0');
+                return;
+            }
+            
+            if (participants.length === 0) {
+                alert('請先添加參賽者');
+                return;
+            }
+            
+            // 打亂參賽者順序
+            const shuffled = [...participants];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            
+            // 創建分組
+            groups = [];
+            for (let i = 0; i < groupCount; i++) {
+                groups.push([]);
+            }
+            
+            // 將參賽者分配到各組
+            let currentGroupIndex = 0;
+            shuffled.forEach(participant => {
+                if (groups[currentGroupIndex].length < membersPerGroup) {
+                    groups[currentGroupIndex].push(participant);
+                } else {
+                    currentGroupIndex = (currentGroupIndex + 1) % groupCount;
+                    if (groups[currentGroupIndex].length < membersPerGroup) {
+                        groups[currentGroupIndex].push(participant);
+                    }
+                }
+            });
+            
+            // 過濾掉空組
+            groups = groups.filter(group => group.length > 0);
+            
+            // 顯示分組結果
+            updateGroupsDisplay();
+        }
+        
+        // 組別編輯相關變數
+        let currentEditingGroupIndex = -1;
+        
+        // 打開組別編輯對話框
+        function openGroupEditDialog(groupIndex) {
+            currentEditingGroupIndex = groupIndex;
+            const group = groups[groupIndex];
+            
+            // 更新對話框標題
+            document.getElementById('groupEditTitle').textContent = `編輯第 ${groupIndex + 1} 組`;
+            
+            // 清空並填充成員列表
+            const membersContainer = document.getElementById('groupEditMembers');
+            membersContainer.innerHTML = '';
+            
+            if (group.length > 0) {
+                group.forEach((member, memberIndex) => {
+                    const memberItem = document.createElement('div');
+                    memberItem.className = 'group-edit-member';
+                    memberItem.innerHTML = `
+                        <div>${member}</div>
+                        <button class="member-remove-btn" data-index="${memberIndex}">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    membersContainer.appendChild(memberItem);
+                });
+                
+                // 為成員刪除按鈕添加事件監聽器
+                membersContainer.querySelectorAll('.member-remove-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const memberIndex = parseInt(this.getAttribute('data-index'));
+                        if (!isNaN(memberIndex) && memberIndex >= 0 && memberIndex < group.length) {
+                            // 把被刪除的成員移到後備名單
+                            const removedMember = group.splice(memberIndex, 1)[0];
+                            backupParticipants.push(removedMember);
+                            
+                            // 更新編輯對話框中的成員列表
+                            openGroupEditDialog(currentEditingGroupIndex);
+                        }
+                    });
+                });
+            } else {
+                membersContainer.innerHTML = '<div class="text-gray-400 py-2 text-center">此組目前沒有成員</div>';
+            }
+            
+            // 顯示對話框
+            document.getElementById('groupEditDialog').style.display = 'flex';
+            
+            // 清空新增成員輸入框
+            document.getElementById('newGroupMember').value = '';
+        }
+        
+        // 關閉組別編輯對話框
+        function closeGroupEditDialog() {
+            document.getElementById('groupEditDialog').style.display = 'none';
+            currentEditingGroupIndex = -1;
+        }
+        
+        // 向當前編輯的組別添加新成員
+        function addMemberToGroup(memberName) {
+            if (currentEditingGroupIndex === -1 || !memberName.trim()) return;
+            
+            // 添加新成員到當前編輯的組別
+            groups[currentEditingGroupIndex].push(memberName.trim());
+            
+            // 更新編輯對話框中的成員列表
+            openGroupEditDialog(currentEditingGroupIndex);
+        }
+        
+        // 保存組別編輯
+        function saveGroupEdit() {
+            // 重新過濾空組
+            groups = groups.filter(group => group.length > 0);
+            
+            // 更新分組顯示
+            updateGroupsDisplay();
+            
+            // 關閉對話框
+            closeGroupEditDialog();
+        }
+        
+                // 刪除組別
+        function deleteGroup(groupIndex) {
+            if (groupIndex < 0 || groupIndex >= groups.length) return;
+            
+            // 將該組成員移到後備名單
+            const group = groups[groupIndex];
+            if (group && group.length > 0) {
+                backupParticipants.push(...group);
+                updateBackupList();
+            }
+            
+            // 從數組中移除該組
+            groups.splice(groupIndex, 1);
+            
+            // 更新分組顯示
+            updateGroupsDisplay();
+            
+            // 關閉編輯對話框
+            closeGroupEditDialog();
+        }
+        
+        // 添加新組別
+        function addNewGroup() {
+            // 創建一個新的空組別
+            groups.push([]);
+            
+            // 更新分組顯示
+            updateGroupsDisplay();
+            
+            // 打開新組的編輯對話框
+            openGroupEditDialog(groups.length - 1);
+        }
+        
+        // 更新分組顯示
+        function updateGroupsDisplay() {
+            const container = document.getElementById('groupResults');
+            container.innerHTML = '';
+            
+            if (groups.length === 0) {
+                document.getElementById('noGroupsMessage').classList.remove('hidden');
+                document.getElementById('applyGroupsBtn').classList.add('hidden');
+            } else {
+                document.getElementById('noGroupsMessage').classList.add('hidden');
+                document.getElementById('applyGroupsBtn').classList.remove('hidden');
+                
+                // 添加現有組別卡片
+                groups.forEach((group, groupIndex) => {
+                    const card = document.createElement('div');
+                    card.className = 'group-card';
+                    card.dataset.groupIndex = groupIndex;
+                    
+                    let membersHTML = '';
+                    group.forEach((member, memberIndex) => {
+                        // 只顯示車號給前9個成員（分配到賽車）
+                        const memberNumber = memberIndex < 9 ? (groupIndex * 9 + memberIndex + 1) : ' - ';
+                        membersHTML += `
+                            <li class="group-member">
+                                <span class="member-number">${memberNumber}</span>
+                                ${member}
+                            </li>
+                        `;
+                    });
+                    
+                    card.innerHTML = `
+                        <div class="group-title">第 ${groupIndex + 1} 組</div>
+                        <ul class="group-members">
+                            ${membersHTML}
+                        </ul>
+                    `;
+                    
+                    // 添加點擊事件
+                    card.addEventListener('click', function() {
+                        const groupIndex = parseInt(this.dataset.groupIndex);
+                        if (!isNaN(groupIndex)) {
+                            openGroupEditDialog(groupIndex);
+                        }
+                    });
+                    
+                    container.appendChild(card);
+                });
+            }
+            
+            // 添加「加新組別」按鈕
+            const addGroupCard = document.createElement('div');
+            addGroupCard.className = 'add-group-card';
+            addGroupCard.innerHTML = `
+                <div class="add-group-icon">
+                    <i class="fas fa-plus-circle"></i>
+                </div>
+                <div class="add-group-text">加新組別</div>
+            `;
+            
+            // 添加點擊事件
+            addGroupCard.addEventListener('click', addNewGroup);
+            
+            container.appendChild(addGroupCard);
+            });
+        }
+        
+        // 將分組結果應用到賽車
+        function applyGroupsToRace() {
+            // 首先重置所有車輛狀態
+            carData.forEach((car, index) => {
+                car.carName = `${car.carNumber}號車`;
+                car.visible = false; // 默認設為不可見
+            });
+            
+            // 為每個賽車分配參賽者名稱 (以組別為單位，第N組對應N號車)
+            groups.forEach((group, groupIndex) => {
+                // 組別索引從0開始，要轉成從1開始的車號
+                const carNumber = groupIndex + 1;
+                
+                // 檢查該車號是否有效 (不超過9)
+                if (carNumber <= 9) {
+                    // 檢查該組是否有成員
+                    if (group.length > 0) {
+                        // 找出本組的所有成員名稱並合併為一個字串
+                        const groupMembers = group.join('、');
+                        
+                        // 設置對應車號的名稱，並設為可見
+                        const carIndex = carData.findIndex(car => car.carNumber === carNumber);
+                        if (carIndex !== -1) {
+                            carData[carIndex].carName = `${carNumber}號車 (${groupMembers})`;
+                            carData[carIndex].visible = true; // 有成員的組別對應的車輛設為可見
+                        }
+                    }
+                }
+            });
+            
+            // 更新排名顯示
+            updateRankings();
+            
+            // 關閉側邊欄
+            toggleSidebar();
+            
+            // 顯示成功訊息
+            alert('已成功將參賽者分配到賽車！沒有參賽者的組別對應的車輛已隱藏');
+        }
+        
+        // Initialize the game when the page loads
+        window.addEventListener('load', () => {
+            initGame();
+            createBackgroundParticles();
+            
+            // 添加確認和拒絕按鈕事件監聽器
+            document.getElementById('confirmBtn').addEventListener('click', confirmSignal);
+            document.getElementById('rejectBtn').addEventListener('click', rejectConfirmation);
+            
+            // 添加修改成績對話框事件監聽器
+            document.getElementById('closeEditDialog').addEventListener('click', closeEditScoreDialog);
+            document.getElementById('cancelEditBtn').addEventListener('click', closeEditScoreDialog);
+            document.getElementById('saveEditBtn').addEventListener('click', () => {
+                closeEditScoreDialog();
+            });
+            document.getElementById('increaseLapBtn').addEventListener('click', increaseCarLaps);
+            document.getElementById('decreaseLapBtn').addEventListener('click', decreaseCarLaps);
+            
+            // 組別編輯對話框相關事件監聽器
+            document.getElementById('closeGroupEditBtn').addEventListener('click', closeGroupEditDialog);
+            document.getElementById('cancelGroupEditBtn').addEventListener('click', closeGroupEditDialog);
+            document.getElementById('saveGroupEditBtn').addEventListener('click', saveGroupEdit);
+            document.getElementById('deleteGroupBtn').addEventListener('click', function() {
+                if (confirm(`確定要刪除第 ${currentEditingGroupIndex + 1} 組嗎？組內所有成員將移至後備名單。`)) {
+                    deleteGroup(currentEditingGroupIndex);
+                }
+            });
+            document.getElementById('addGroupMemberBtn').addEventListener('click', function() {
+                const memberName = document.getElementById('newGroupMember').value;
+                addMemberToGroup(memberName);
+            });
+            document.getElementById('newGroupMember').addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    addMemberToGroup(this.value);
+                }
+            });
+            
+            // 添加車輛項目點擊事件
+            document.addEventListener('click', function(event) {
+                // 尋找最近的 ranking-item 祖先元素
+                const rankingItem = event.target.closest('.ranking-item');
+                if (rankingItem) {
+                    // 從類名中提取車輛編號
+                    const classNames = rankingItem.className.split(' ');
+                    const carClassMatch = classNames.find(cls => cls.startsWith('car-'));
+                    
+                    if (carClassMatch) {
+                        const carNumber = parseInt(carClassMatch.replace('car-', ''), 10);
+                        if (!isNaN(carNumber)) {
+                            showEditScoreDialog(carNumber);
+                        }
+                    }
+                }
+            });
+            
+            // 側邊欄相關事件監聽器
+            document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
+            
+            // 頁籤切換
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    switchTab(this.getAttribute('data-tab'));
+                });
+            });
+            
+            // CSV上傳相關
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            
+            uploadArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('border-secondary-color');
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('border-secondary-color');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('border-secondary-color');
+                if (e.dataTransfer.files.length) {
+                    const file = e.dataTransfer.files[0];
+                    if (file.name.endsWith('.csv')) {
+                        document.getElementById('fileName').textContent = file.name;
+                        document.getElementById('filePreview').classList.remove('hidden');
+                        fileInput.files = e.dataTransfer.files;
+                    } else {
+                        alert('請上傳CSV檔案');
+                    }
+                }
+            });
+            
+            fileInput.addEventListener('change', function() {
+                if (this.files.length) {
+                    const file = this.files[0];
+                    if (file.name.endsWith('.csv')) {
+                        document.getElementById('fileName').textContent = file.name;
+                        document.getElementById('filePreview').classList.remove('hidden');
+                    } else {
+                        alert('請上傳CSV檔案');
+                        this.value = '';
+                    }
+                }
+            });
+            
+            document.getElementById('loadCsvBtn').addEventListener('click', function() {
+                const file = fileInput.files[0];
+                if (file) {
+                    handleFileUpload(file);
+                    switchTab('participants'); // 自動切換到參賽者管理頁籤
+                }
+            });
+            
+            // 參賽者管理
+            document.getElementById('addParticipantBtn').addEventListener('click', function() {
+                const nameInput = document.getElementById('newParticipantName');
+                addParticipant(nameInput.value);
+            });
+            
+            document.getElementById('newParticipantName').addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    addParticipant(this.value);
+                }
+            });
+            
+            // 分組功能
+            document.getElementById('randomGroupBtn').addEventListener('click', randomizeGroups);
+            document.getElementById('applyGroupsBtn').addEventListener('click', applyGroupsToRace);
+            
+            // Check if Web Serial API is supported
+            if (!navigator.serial) {
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('statusText').textContent = '瀏覽器不支持 Web Serial API';
+                document.getElementById('connectBtn').classList.add('opacity-50');
+            }
+        });
+    </script>
+</body>
+</html>
